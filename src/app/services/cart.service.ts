@@ -21,12 +21,12 @@ export class CartService {
     getCart(cartId: string): Observable<Cart> {
         let url = `${environment.API_CART}/cart/${cartId}`;
         return this.client.get(url)
-        .map(res => res.json())
+            .map(res => res.json())
     }
 
-    createCart(cart: Cart, isPaint: boolean = false, sessionId: string = null, zipCode: number = 0): Observable<Cart> {
+    createCart(cart: Cart, isPaint: boolean = false, sessionId: string = null, zipCode: number = 0, origin: string = null): Observable<Cart> {
         let item = {};
-        if(isPaint){
+        if (isPaint) {
             item = {
                 "paint": {
                     "id": cart.paints[0].id,
@@ -34,10 +34,11 @@ export class CartService {
                     "quantity": cart.paints[0].quantity
                 },
                 "zipCode": zipCode,
+                "origin": origin,
                 "sessionId": sessionId
             }
         }
-        else{
+        else {
             item = {
                 "product": {
                     "skuId": cart.products[0].sku.id,
@@ -45,6 +46,7 @@ export class CartService {
                     "feature": cart.products[0].sku.feature
                 },
                 "zipCode": zipCode,
+                "origin": origin,
                 "sessionId": sessionId
             }
         }
@@ -104,7 +106,7 @@ export class CartService {
     addDeliveryAddress(cartId: string, addressId: string, token: Token): Observable<Cart> {
         let url = `${environment.API_CART}/Cart/${cartId}/DeliveryAddress/${addressId}`;
         return this.client.post(url, null, token)
-        .map(res => res.json())
+            .map(res => res.json())
     }
 
     addBillingAddress(cartId: string, addressId: string, token: Token): Observable<Cart> {
@@ -121,7 +123,7 @@ export class CartService {
 
 
     /* Custom Paint */
-    addPaint(paintId: string, manufacturer: string, quantity: number, cartId: string): Observable<Cart>{
+    addPaint(paintId: string, manufacturer: string, quantity: number, cartId: string): Observable<Cart> {
         let url = `${environment.API_CART}/Cart/${cartId}/Paints/`;
         let item = {
             "id": paintId,
@@ -132,13 +134,13 @@ export class CartService {
             .map(res => res.json());
     }
 
-    updatePaint(paint: CartItem, cartId: string): Observable<Cart>{
+    updatePaint(paint: CartItem, cartId: string): Observable<Cart> {
         let url = `${environment.API_CART}/Cart/${cartId}/Paints/${paint.id}/Quantity/${paint.quantity}`;
         return this.client.put(url, null)
             .map(res => res.json());
     }
 
-    deletePaint(paint: CartItem, cartId: string): Observable<Cart>{
+    deletePaint(paint: CartItem, cartId: string): Observable<Cart> {
         let url = `${environment.API_CART}/Cart/${cartId}/Paints/${paint.id}`;
         return this.client.delete(url)
             .map(res => res.json());

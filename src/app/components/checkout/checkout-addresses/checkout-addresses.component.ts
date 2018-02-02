@@ -58,9 +58,9 @@ export class CheckoutAddressesComponent implements OnInit {
             this.showShippingAddresses = !this.showShippingAddresses;
     }
 
-//     /*
-//     ** Getters
-//     */
+    //     /*
+    //     ** Getters
+    //     */
 
     /**
      * Retorna o endereço padrão ou o primeiro da lista
@@ -74,9 +74,9 @@ export class CheckoutAddressesComponent implements OnInit {
         else return this.addresses[0];
     }
 
-//     /*
-//     ** Setters
-//     */
+    //     /*
+    //     ** Setters
+    //     */
 
     /**
      * Seleciona o endereço de cobrança
@@ -93,7 +93,7 @@ export class CheckoutAddressesComponent implements OnInit {
                     this.retryBillingAddress = true;
                 }
                 if (this.retryBillingAddress) {
-                    this.globals.cart.deliveryAddress = address;
+                    this.globals.cart.billingAddress = address;
                     this.cartManager.addBillingAddress(this.globals.cart.id, address.id)
                         .then(cart => {
                             this.showBillingAddresses = false;

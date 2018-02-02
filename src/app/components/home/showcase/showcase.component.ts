@@ -1,5 +1,5 @@
 import { Component, OnInit } from '@angular/core';
-import { Title, Meta } from '@angular/platform-browser';
+import { Title, Meta, makeStateKey, TransferState } from '@angular/platform-browser';
 import { PLATFORM_ID, Inject, Input } from '@angular/core';
 import { isPlatformBrowser, isPlatformServer } from '@angular/common';
 import { Globals } from '../../../models/globals';
@@ -11,7 +11,11 @@ import { Store } from '../../../models/store/store';
 import { AppCore } from '../../../app.core';
 import { StoreService } from '../../../services/store.service';
 import { ShowcaseGroup } from '../../../models/showcase/showcase-group';
-import { error } from 'util';
+import { Router } from '@angular/router';
+import { AppConfig } from '../../../app.config';
+
+const SHOWCASE_KEY = makeStateKey('showcase_key');
+const STORE_KEY = makeStateKey('store_key');
 
 @Component({
     selector: 'app-showcase',
@@ -32,16 +36,24 @@ export class ShowcaseComponent implements OnInit {
         private service: ShowCaseService,
         private storeService: StoreService,
         private globals: Globals,
+        private router: Router,
+        private state: TransferState,
         @Inject(PLATFORM_ID) private platformId: Object
     ) { }
 
     ngOnInit() {
+        this.showcase = this.state.get(SHOWCASE_KEY, null as any);
+        this.groups = (this.showcase && this.showcase.groups) ? this.showcase.groups : [];
+        this.store = this.state.get(STORE_KEY, null as any);
         this.fetchStore()
             .then(store => {
                 this.store = store;
+                this.state.set(STORE_KEY, store as any);
                 this.service.getShowCase()
                     .subscribe(showcase => {
                         this.showcase = showcase;
+                        this.state.set(SHOWCASE_KEY, showcase as any);
+                        this.groups = showcase.groups;
                         this.banners = showcase.pictures.filter(b => b.bannerType == EnumBannerType.Full);
                         this.stripeBanners = showcase.pictures.filter(b => b.bannerType == EnumBannerType.Tarja);
                         this.halfBanners = showcase.pictures.filter(b => b.bannerType == EnumBannerType.Half);
@@ -54,7 +66,9 @@ export class ShowcaseComponent implements OnInit {
                         this.titleService.setTitle(showcase.metaTagTitle);
                     }, error => console.log(error));
             })
-            .catch(error => console.log(error));
+            .catch(error => {
+                console.log(error);
+            });
     }
 
     ngOnDestroy() {
@@ -64,11 +78,25 @@ export class ShowcaseComponent implements OnInit {
     }
 
     private fetchStore(): Promise<Store> {
+        if (isPlatformBrowser(this.platformId)) {
+            let store: Store = JSON.parse(sessionStorage.getItem('store'));
+            if (store && store.domain == AppConfig.DOMAIN) {
+                return new Promise((resolve, reject) => {
+                    resolve(store);
+                });
+            }
+        }
+        return this.fetchStoreFromApi();
+    }
+
+    private fetchStoreFromApi(): Promise<Store> {
         return new Promise((resolve, reject) => {
             this.storeService.getStore()
                 .subscribe(response => {
-                    let store: Store = new Store(response);
-                    resolve(store);
+                    if (isPlatformBrowser(this.platformId)) {
+                        sessionStorage.setItem('store', JSON.stringify(response));
+                    }
+                    resolve(response);
                 }, error => {
                     reject(error);
                 });

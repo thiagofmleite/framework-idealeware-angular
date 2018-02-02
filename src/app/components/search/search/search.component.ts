@@ -24,6 +24,7 @@ import { AppCore } from '../../../app.core';
 import { isPlatformBrowser } from '@angular/common';
 import { StoreService } from '../../../services/store.service';
 import { error } from 'util';
+import { AppConfig } from '../../../app.config';
 
 declare var $: any;
 
@@ -44,7 +45,7 @@ export class SearchComponent implements OnInit {
     filterModel: Filter;
     orderBy: string = null;
     sortBy: string[] = [];
-    pageSize: number = 9;
+    pageSize: number = 16;
     pages: number[];
     pagination: Pagination;
     products: Product[] = [];
@@ -222,7 +223,7 @@ export class SearchComponent implements OnInit {
         this.setFilter();
     }
 
-    createFilterUrl(moduleName: string, id: string, name: string, reload: boolean = false, searchInput: Search = null, maximumPrice: number, minimumPrice:number, sort: EnumSort = null): string {
+    createFilterUrl(moduleName: string, id: string, name: string, reload: boolean = false, searchInput: Search = null, maximumPrice: number, minimumPrice: number, sort: EnumSort = null): string {
         let url: string = '';
         if (moduleName == 'category' && !reload) {
             url = `/categoria/${id}/${AppCore.getNiceName(name)}`;
@@ -267,8 +268,25 @@ export class SearchComponent implements OnInit {
     }
 
     buildUrl(reload: boolean = false): string {
-        let id: string = (this['module']) ? this['module']['id'] : '';
-        let name: string = (this['module']) ? this['module']['name'] : '';
+        let id: string = '';
+        let name: string = '';
+
+        switch (this.module) {
+            case 'category':
+                id = this.id;
+                name = this.category.name;
+                break;
+            case 'brand':
+                id = this.id;
+                name = this.brand.name;
+                break;
+            case 'group':
+                id = this.id;
+                name = this.group.name;
+                break;
+            default:
+                break;
+        }
         return this.createFilterUrl(this.module, id, name, reload, this.searchInput, Number.parseFloat(this.maximumPrice), Number.parseFloat(this.minimumPrice), (this.sort) ? this.sort : null);
     }
 
@@ -297,7 +315,7 @@ export class SearchComponent implements OnInit {
             }
             else {
                 return false;
-            } 
+            }
         }
         else if (collection == 'category') {
             if (this.searchInput.categories.findIndex(category => category == id) > -1) {
@@ -508,14 +526,16 @@ export class SearchComponent implements OnInit {
     buildFilterModel() {
         this.filterModel = new Filter();
         this.searchInput.categories.forEach(id => {
-            let found = this.categories.filter(x => x.id == id)[0];
+            let found = (this.categories) ? this.categories.filter(x => x.id == id)[0] : null;
             if (found) {
                 this.filterModel.categories.push(found);
             }
 
-            this.categories.forEach(c => {
-                this.findChildrenCategory(c, id);
-            });
+            if (this.categories) {
+                this.categories.forEach(c => {
+                    this.findChildrenCategory(c, id);
+                });
+            }
         });
 
         this.searchInput.brands.forEach(id => {
@@ -739,16 +759,42 @@ export class SearchComponent implements OnInit {
 
     applyResults(results: SearchResult) {
         this.loading = false;
-        this.products = results.products;
-        this.brands = results.facetBrands;
-        this.options = results.facetOptions;
-        this.variations = results.facetVariations;
+        if (results.products) {
+            this.products = results.products;
+        } else {
+            this.products = [];
+        }
+        if (results.facetBrands) {
+            this.brands = results.facetBrands;
+        } else {
+            this.brands = [];
+        }
+        if (results.facetOptions) {
+            this.options = results.facetOptions;
+        } else {
+            this.options = [];
+        }
+        if (results.facetVariations) {
+            this.variations = results.facetVariations;
+        } else {
+            this.variations = [];
+        }
+        if (results.facetPrice) {
+            this.priceRange = results.facetPrice;
+            this.maximumPrice = results.facetPrice.maximumPrice.toFixed(2).replace('.', ',');
+            this.minimumPrice = results.facetPrice.minimumPrice.toFixed(2).replace('.', ',');
+        } else {
+            this.priceRange = new PriceRange();
+            this.maximumPrice = '0,00';
+            this.minimumPrice = '0,00';
+        }
+        if (results.facetCategories) {
+            this.arrangeCategories(results.facetCategories);
+        } else {
+            this.categories = null;
+        }
         this.pagination = results.pagination;
         this.numPages = this.pagination.TotalPages;
-        this.priceRange = results.facetPrice;
-        this.maximumPrice = results.facetPrice.maximumPrice.toFixed(2).replace('.', ',');
-        this.minimumPrice = results.facetPrice.minimumPrice.toFixed(2).replace('.', ',');
-        this.arrangeCategories(results.facetCategories);
         this.buildFilterModel();
     }
 
@@ -782,9 +828,28 @@ export class SearchComponent implements OnInit {
     }
 
     private fetchStore(): Promise<Store> {
+        if (isPlatformBrowser(this.platformId)) {
+            let store: Store = JSON.parse(sessionStorage.getItem('store'));
+            if (store && store.domain == AppConfig.DOMAIN) {
+                return new Promise((resolve, reject) => {
+                    resolve(store);
+                });
+            }
+        }
+        return this.fetchStoreFromApi();
+    }
+
+    private fetchStoreFromApi(): Promise<Store> {
         return new Promise((resolve, reject) => {
             this.storeApi.getStore()
-                .subscribe(store => resolve(store), error => reject(error));
+                .subscribe(response => {
+                    if (isPlatformBrowser(this.platformId)) {
+                        sessionStorage.setItem('store', JSON.stringify(response));
+                    }
+                    resolve(response);
+                }, error => {
+                    reject(error);
+                });
         });
     }
 
@@ -792,6 +857,14 @@ export class SearchComponent implements OnInit {
         if (this.globals.store.modality == EnumStoreModality.Budget)
             return true;
         else return false;
+    }
+
+    isHiddenVariation(): boolean {
+        let type = this.store.settings.find(s => s.type == 4);
+        if (type)
+            return type.status;
+        else
+            return false;
     }
 
     showValues(): boolean {
@@ -827,28 +900,28 @@ export class SearchComponent implements OnInit {
     }
 
     hasReload(searchInput: Search): boolean {
-        if(searchInput.name) {
+        if (searchInput.name) {
             return true;
         }
-        if(searchInput.brands.length > 0) {
+        if (searchInput.brands.length > 0) {
             return true;
         }
-        if(searchInput.categories.length > 0) {
+        if (searchInput.categories.length > 0) {
             return true;
         }
-        if(searchInput.options.length > 0) {
+        if (searchInput.options.length > 0) {
             return true;
         }
-        if(searchInput.variations.length > 0) {
+        if (searchInput.variations.length > 0) {
             return true;
         }
-        if(searchInput.sort) {
+        if (searchInput.sort) {
             return true;
         }
-        if(searchInput.priceRange && searchInput.priceRange.maximumPrice) {
+        if (searchInput.priceRange && searchInput.priceRange.maximumPrice) {
             return true;
         }
-        if(searchInput.priceRange && searchInput.priceRange.minimumPrice) {
+        if (searchInput.priceRange && searchInput.priceRange.minimumPrice) {
             return true;
         }
         else {
@@ -856,7 +929,7 @@ export class SearchComponent implements OnInit {
         }
     }
 
-    getRoute(collection: string, filter: any): string {    
+    getRoute(collection: string, filter: any): string {
         let reload: boolean = false;
         return this.createFilterUrl(collection, filter.id, filter.name, reload, this.searchInput, Number.parseFloat(this.maximumPrice), Number.parseFloat(this.minimumPrice), (this.sort) ? this.sort : null);
     }

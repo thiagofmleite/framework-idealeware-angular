@@ -1,11 +1,31 @@
 # Changelog
 
+## 2.1.1
+- Correção da paginação das cores personalizadas
+
+## 2.1.1
+- Correção do Erro 500 ao primeiro carregamento no Server Side
+
+## 2.1.0
+- Adicionado componente para o newsletter do popup
+
+## 2.0.4
+- Correção das bandeiras da Mundipagg
+
+## 2.0.3
+- Correções internas
+
+## 2.0.2
+- Melhorias de performance
+- Resolvido o flickering na loja
+
 ## 2.0.0
 - Implementação do Angular Universal
 - Adicionadas melhorias para SEO
 - Nova estrutura da loja
 - Suporte a SASS
 - Nova camada de template, contendo os arquivos HTML e SCSS de cada componente
+- Atualização do filtro de produtos
 
 ## 1.3.1
 - Filtro Avançado -> Melhoria para exibição de Marcas e Categorias na busca

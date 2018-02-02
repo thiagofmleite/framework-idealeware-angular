@@ -1,10 +1,9 @@
-import {Sku} from './sku';
-import {ProductPicture} from './product-picture';
-import {Category} from '../category/category';
-import {Service} from '../product-service/product-service';
+import { Sku } from './sku';
+import { ProductPicture } from './product-picture';
+import { Category } from '../category/category';
+import { Service } from '../product-service/product-service';
 import { Brand } from "../brand/brand";
 import { TechnicalInformation } from "./product-technical-information";
-import { ProductVideo } from "./product-video";
 
 export class Product {
     id: string;
@@ -17,7 +16,6 @@ export class Product {
     technicalInformation: TechnicalInformation[] = [];
     brand: Brand;
     installmentLimit: number;
-    video: ProductVideo = new ProductVideo();
     plusFreight: number;
     daysProcessing: number;
     file: string;
@@ -29,6 +27,8 @@ export class Product {
     shippingCompanies: Object[] = [];
     crossSelling: Object[] = [];
     upSelling: Object[] = [];
+    crossSellingComplete: Product[] = [];
+    upSellingComplete: Product[] = [];
     services: Service[] = [];
     pictures: ProductPicture[] = [];
     areaSizer: number;
@@ -38,9 +38,11 @@ export class Product {
     information: string;
     selfColor: boolean;
     additionalFreightPrice: number;
-    installmentValue : number;
-    installmentNumber : number;
-    showInstallment : boolean;
+    installmentValue: number;
+    installmentNumber: number;
+    showInstallment: boolean;
     installmentText: string;
     fileGuide: string;
+    videoEmbed: string;
+    videoUrl: string;
 }

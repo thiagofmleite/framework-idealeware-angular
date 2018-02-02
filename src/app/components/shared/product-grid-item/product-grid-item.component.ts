@@ -38,7 +38,7 @@ export class ProductGridItemComponent implements OnInit {
         this.price = this.sku.price;
         this.promotionalPrice = this.sku.promotionalPrice;
 
-        if(this.store.modality == EnumStoreModality.Ecommerce){
+        if (this.store.modality == EnumStoreModality.Ecommerce) {
             this.simulateInstallments();
         }
     }
@@ -47,35 +47,54 @@ export class ProductGridItemComponent implements OnInit {
         return `/${AppCore.getNiceName(this.product.name)}-${this.sku.id}`;
     }
 
+    setCoverImage(alternative: boolean) {
+        this.alternative = alternative;
+    }
+
     getCoverImage(): string {
         const mediaPath = `${this.store.link}/static/products`;
         let coverImg: string;
-        if(this.sku.picture)
-            coverImg = (this.sku.picture['showcase']) ?`${mediaPath}/${this.sku.picture.showcase}` : '/assets/images/no-image.jpg';
-        else
-            coverImg = '/assets/images/no-image.jpg';
+        if (this.alternative) {
+            if (this.sku.alternativePicture) {
+                coverImg = (this.sku.alternativePicture['showcase']) ? `${mediaPath}/${this.sku.alternativePicture.showcase}` : '/assets/images/no-image.jpg';
+            }
+            else if (this.sku.picture) {
+                coverImg = (this.sku.picture['showcase']) ? `${mediaPath}/${this.sku.picture.showcase}` : '/assets/images/no-image.jpg';
+            }
+            else {
+                coverImg = '/assets/images/no-image.jpg';
+            }
+        }
+        else {
+            if (this.sku.picture) {
+                coverImg = (this.sku.picture['showcase']) ? `${mediaPath}/${this.sku.picture.showcase}` : '/assets/images/no-image.jpg';
+            }
+            else {
+                coverImg = '/assets/images/no-image.jpg';
+            }
+        }
         return coverImg;
     }
 
-    getModality(): number{
-        if(this.store) {
+    getModality(): number {
+        if (this.store) {
             return this.store.modality;
         }
         return -1;
     }
 
-    isBudget(): boolean{
-        if(this.store && this.store.modality == EnumStoreModality.Budget) {
+    isBudget(): boolean {
+        if (this.store && this.store.modality == EnumStoreModality.Budget) {
             return true;
         }
         return false;
     }
 
-    isAvailable(): boolean{
-        if(this.store.modality == EnumStoreModality.Budget && this.sku.available) {
+    isAvailable(): boolean {
+        if (this.store.modality == EnumStoreModality.Budget && this.sku.available) {
             return true;
         }
-        else if(this.store.modality == EnumStoreModality.Ecommerce && this.sku.available && this.sku.stock > 0) {
+        else if (this.store.modality == EnumStoreModality.Ecommerce && this.sku.available && this.sku.stock > 0) {
             return true;
         }
         else return false;
@@ -111,16 +130,16 @@ export class ProductGridItemComponent implements OnInit {
                     localStorage.setItem('compare', JSON.stringify(compare));
                 }
             }
-        }            
+        }
     }
 
     simulateInstallments() {
         if (isPlatformBrowser(this.platformId)) {
             this.paymentManager.getInstallments(this.sku)
-            .then(payment => {
-                this.product.installmentText = this.paymentManager.getInstallmentText(payment, payment.paymentMethods[0]);
-            })
-            .catch(error => console.log(error));
-        }            
+                .then(payment => {
+                    this.product.installmentText = this.paymentManager.getInstallmentText(payment, payment.paymentMethods[0]);
+                })
+                .catch(error => console.log(error));
+        }
     }
 }

@@ -208,7 +208,7 @@
                             </ul>
                         </ng-template>
                         <ng-template #hasno_categories>
-                            <app-wait-loader></app-wait-loader>
+                            <app-wait-loader *ngIf="categories != null"></app-wait-loader>
                         </ng-template>
                     </div>
                     <!-- Filtrar por Marcas -->
@@ -228,7 +228,7 @@
                         </div>
                     </div>
                     <!-- Filtrar por Opções -->
-                    <div class="filter-by nav" *ngIf="showFilter(options)">
+                    <div class="filter-by nav" *ngIf="showFilter(options) && !isHiddenVariation()">
                         <div class="filter-items marcas">
                             <b class="caption">Opções</b>
                             <ul>

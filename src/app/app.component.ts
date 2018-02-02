@@ -1,5 +1,5 @@
 import { Component, OnInit, Inject, PLATFORM_ID } from '@angular/core';
-import { Meta, Title, SafeResourceUrl, DomSanitizer } from '@angular/platform-browser';
+import { Meta, Title, SafeResourceUrl, DomSanitizer, TransferState, makeStateKey } from '@angular/platform-browser';
 import { StoreService } from './services/store.service';
 import { Globals } from './models/globals';
 import { Store } from './models/store/store';
@@ -19,7 +19,9 @@ import { PaymentManager } from './managers/payment.manager';
 import { PaymentMethod } from './models/payment/payment-method';
 import { GoogleService } from './services/google.service';
 import { CustomerManager } from './managers/customer.manager';
+import { Token } from './models/customer/token';
 
+const STORE_KEY = makeStateKey('store_key');
 declare var $: any;
 declare var ga: any;
 
@@ -34,15 +36,15 @@ export class AppComponent implements OnInit {
   Members
   *********************************************************************************************************
   */
-  cart: Cart;
-  date: Date = new Date();
-  googleUA: Google;
-  customer: Customer;
   private path: string;
   private logged: boolean;
   private ssl: boolean = false;
   private PagseguroScriptAdded: boolean = false;
   private MercadopagoScriptAdded: boolean = false;
+  cart: Cart;
+  date: Date = new Date();
+  googleUA: Google;
+  customer: Customer;
   mediaPath: string;
   institutionals: Institutional[] = [];
   payments: Payment[] = [];
@@ -69,6 +71,7 @@ export class AppComponent implements OnInit {
     private paymentManager: PaymentManager,
     private googleService: GoogleService,
     private customerManager: CustomerManager,
+    private state: TransferState,
     @Inject(PLATFORM_ID) private platformId: Object
   ) {
     this.globals = new Globals();
@@ -81,37 +84,32 @@ export class AppComponent implements OnInit {
   *********************************************************************************************************
   */
   ngOnInit() {
+    this.store = this.state.get(STORE_KEY, null as any);
     if (!this.getSessionId()) {
       this.setSessionId();
     }
-
-    this.service.getStore()
-      .subscribe(response => {
-        let store: Store = new Store(response);
+    this.fetchStore()
+      .then(store => {
         this.globals.store = store;
         this.store = store;
-        this.mediaPath = `${this.globals.store.link}/static`;
+        this.state.set(STORE_KEY, store as any);
+        this.mediaPath = `${store.link}/static`;
         this.getInstitutionals();
         this.getGoogle();
-
         if (this.store.modality == EnumStoreModality.Ecommerce) {
           this.getPayments();
         }
-
         this.facebookSafeUrl = this.getFacebookUrl();
-
-      }, error => {
+      })
+      .catch(error => {
         console.log(error);
+        this.router.navigate(['/erro-500']);
       });
   }
 
   ngAfterContentChecked() {
     this.getUrl();
     this.getCustomer();
-    if (this.globals.store && !this.ssl) {
-      this.ssl = this.addSSL();
-    }
-
     if (isPlatformBrowser(this.platformId)) {
       $('#btn-search').click(function (event) {
         $('#search-box .mask').hide();
@@ -133,10 +131,14 @@ export class AppComponent implements OnInit {
   }
 
   ngAfterViewChecked() {
+    this.keepHttps();
     this.checkSessionId();
     this.getUrl();
     this.addPagseguro();
     this.addMercadoPago();
+    if (this.store && !this.ssl) {
+      this.ssl = this.addSSL();
+    }
     if (this.isMobile()) {
       if (isPlatformBrowser(this.platformId)) {
         if (!$('body').hasClass('mobile-body'))
@@ -158,9 +160,10 @@ export class AppComponent implements OnInit {
    * @memberof AppComponent
    */
   getStore(): Store {
-    if (this.store)
+    if (this.store) {
       return this.store;
-    else return null;
+    }
+    return new Store();
   }
 
   getCustomer() {
@@ -202,6 +205,7 @@ export class AppComponent implements OnInit {
       this.paymentService.getAll()
         .subscribe(payments => {
           this.payments = payments;
+          this.createPagseguroSession();
           resolve(payments);
         }, error => {
           console.log(error._body);
@@ -219,7 +223,7 @@ export class AppComponent implements OnInit {
     this.router.events.subscribe((url: any) => {
       this.path = url['url'];
 
-      if(this.path && !this.path.includes('q=')) {
+      if (this.path && !this.path.includes('q=')) {
         this.q = '';
       }
     });
@@ -385,13 +389,83 @@ export class AppComponent implements OnInit {
 
   addSSL(): boolean {
     if (isPlatformBrowser(this.platformId)) {
-      var element = $('img[name=ss_imgTag]').detach();
-      var element2 = $('#ss_siteSeal_fin_SZ115-55_image_en_V0000_S001').detach();
-      $('#selo-alphassl').append(element);
-      $('#selo-alphassl').append(element2);
-      return true;
+      let children = $('#index-seal-ssl').children();
+      if (children.length == 4) {
+        for (let i = 0; i < children.length; i++) {
+          let c = children[i];
+          $('#selo-alphassl').append(c);
+        }
+        return true;
+      }
+      else {
+        return false;
+      }
     }
     return false;
+  }
+
+  keepHttps() {
+    if (isPlatformBrowser(this.platformId)) {
+      if (location.href.indexOf("https://") == -1 && location.hostname != 'localhost' && !/^\d+[.]/.test(location.hostname)) {
+        location.href = location.href.replace("http://", "https://");
+      }
+    }
+  }
+
+  createPagseguroSession() {
+    if (isPlatformBrowser(this.platformId)) {
+      if (this.customerManager.hasToken()) {
+        let token: Token = this.customerManager.getToken();
+        this.paymentService.createPagSeguroSession(token)
+          .then(sessionId => {
+            localStorage.setItem('pagseguro_session', sessionId);
+          })
+          .catch(error => {
+            console.log(`ERRO AO GERAR A SESSÃO DO PAGSEGURO: ${error}`);
+          });
+      }
+      else {
+        this.paymentManager.createPagSeguroSessionSimulator()
+          .then(sessionId => {
+            localStorage.setItem('pagseguro_session', sessionId);
+          })
+          .catch(error => {
+            console.log(`ERRO AO GERAR A SESSÃO DO PAGSEGURO: ${error}`);
+          });
+      }
+    }
+  }
+
+  private fetchStore(): Promise<Store> {
+    if (isPlatformBrowser(this.platformId)) {
+      let store: Store = JSON.parse(sessionStorage.getItem('store'));
+      if (store && store.domain == AppConfig.DOMAIN) {
+        return new Promise((resolve, reject) => {
+          resolve(store);
+        });
+      }
+      else if (!store && this.store) {
+        return new Promise((resolve, reject) => {
+          sessionStorage.setItem('store', JSON.stringify(this.store));
+          resolve(this.store);
+        });
+      }
+    }
+    return this.fetchStoreFromApi();
+  }
+
+  private fetchStoreFromApi(): Promise<Store> {
+    return new Promise((resolve, reject) => {
+      this.service.getStore()
+        .subscribe(response => {
+          if (isPlatformBrowser(this.platformId)) {
+            sessionStorage.setItem('store', JSON.stringify(response));
+          }
+          resolve(response);
+        }, error => {
+          reject(error);
+        });
+    });
   }
 
 }

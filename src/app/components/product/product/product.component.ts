@@ -31,6 +31,7 @@ import { ProductAwaitedService } from '../../../services/product-awaited.service
 import { StoreService } from '../../../services/store.service';
 import { error } from 'util';
 import { ProductManager } from '../../../managers/product.manager';
+import { AppConfig } from '../../../app.config';
 
 declare var $: any;
 declare var S: any;
@@ -102,39 +103,39 @@ export class ProductComponent {
     /* Lifecycle events */
     ngOnInit() {
         this.fetchStore()
-        .then(store => {
-            this.store = store;
-            this.mediaPath = `${this.store.link}/static/products/`;
-            this.modality = this.store.modality;
-            this.showValuesProduct = this.showValues(this.store);
+            .then(store => {
+                this.store = store;
+                this.mediaPath = `${this.store.link}/static/products/`;
+                this.modality = this.store.modality;
+                this.showValuesProduct = this.showValues(this.store);
 
-            if (isPlatformBrowser(this.platformId)) {
-                $('body').addClass('product');
-                window.scrollTo(0, 0);
-            }
+                if (isPlatformBrowser(this.platformId)) {
+                    $('body').addClass('product');
+                    window.scrollTo(0, 0);
+                }
 
-            this.route.params
-                .map(params => params)
-                .subscribe((params) => {
-                    if (params['id']) {
-                        this.id = params['id'];
-                        this.getProductBySku(this.id);
-                    }
-                    else if (params['product']) {
-                        let paramProduct = params['product'];
-                        this.id = paramProduct.substr(params['product'].length - 36);
-                        if (this.isGuid(this.id))
+                this.route.params
+                    .map(params => params)
+                    .subscribe((params) => {
+                        if (params['id']) {
+                            this.id = params['id'];
                             this.getProductBySku(this.id);
-                        else {
-                            let routeParam = decodeURI(this.parentRouter.url).slice(1);
-                            this.parentRouter.navigateByUrl(`/redirect/${routeParam}`);
                         }
-                    }
-                });
-        })
-        .catch(error => {
-            console.log(error);
-        });
+                        else if (params['product']) {
+                            let paramProduct = params['product'];
+                            this.id = paramProduct.substr(params['product'].length - 36);
+                            if (this.isGuid(this.id))
+                                this.getProductBySku(this.id);
+                            else {
+                                let routeParam = decodeURI(this.parentRouter.url).slice(1);
+                                this.parentRouter.navigateByUrl(`/redirect/${routeParam}`);
+                            }
+                        }
+                    });
+            })
+            .catch(error => {
+                console.log(error);
+            });
     }
 
     ngOnDestroy() {
@@ -263,22 +264,22 @@ export class ProductComponent {
                 if (this.product.name.toLowerCase().indexOf('tinta') !== -1 && this.store.domain === 'ecommerce') {
                     this.product.selfColor = true;
                 }
-                
-                if (product.video && product.video.videoEmbed)
-                this.videoSafeUrl = this.createSafeUrl(this.product.video.videoEmbed);
-                if (product.fileGuide)
-                this.fileGuideSafeUrl = this.createSafeUrl(`javascript:window.open('${this.mediaPath}${product.fileGuide}');`);
-                
+                if (product.videoEmbed) {
+                    this.videoSafeUrl = this.createSafeUrl(this.product.videoEmbed);
+                }
+                if (product.fileGuide) {
+                    this.fileGuideSafeUrl = this.createSafeUrl(`javascript:window.open('${this.mediaPath}${product.fileGuide}');`);
+                }
                 this.setCurrentSku(id);
                 if (this.isProductRelated()) {
                     this.relatedService.getRelatedProductGroupById(this.product.relatedProductsId)
-                    .subscribe(related => {
-                        this.related = related;
-                        if (this.related.products.length == 0)
-                        this.product.relatedProductsId = null;
-                    }, error => {
-                        console.log(error);
-                    });
+                        .subscribe(related => {
+                            this.related = related;
+                            if (this.related.products.length == 0)
+                                this.product.relatedProductsId = null;
+                        }, error => {
+                            console.log(error);
+                        });
                 }
                 this.setTitle(this.product, this.sku);
                 this.metaService.addTags([
@@ -518,25 +519,39 @@ export class ProductComponent {
     }
 
     hasFileGuide(): boolean {
-        if(this.product && this.product.fileGuide) {
+        if (this.product && this.product.fileGuide) {
             return true;
         }
         return false;
     }
 
     hasVideo(): boolean {
-        if(this.product && this.product.video) {
+        if (this.product && this.product.videoEmbed) {
             return true;
         }
         return false;
     }
 
     private fetchStore(): Promise<Store> {
+        if (isPlatformBrowser(this.platformId)) {
+            let store: Store = JSON.parse(sessionStorage.getItem('store'));
+            if (store && store.domain == AppConfig.DOMAIN) {
+                return new Promise((resolve, reject) => {
+                    resolve(store);
+                });
+            }
+        }
+        return this.fetchStoreFromApi();
+    }
+
+    private fetchStoreFromApi(): Promise<Store> {
         return new Promise((resolve, reject) => {
             this.storeService.getStore()
                 .subscribe(response => {
-                    let store: Store = new Store(response);
-                    resolve(store);
+                    if (isPlatformBrowser(this.platformId)) {
+                        sessionStorage.setItem('store', JSON.stringify(response));
+                    }
+                    resolve(response);
                 }, error => {
                     reject(error);
                 });
@@ -551,25 +566,47 @@ export class ProductComponent {
     }
 
     getProduct(): Product {
-        if(this.product && this.product.id) {
+        if (this.product && this.product.id) {
             return this.product;
         }
         return null;
     }
 
     isProductLoaded(): boolean {
-        if(this.getProduct() && this.getStore()){
+        if (this.getProduct() && this.getStore()) {
             return true;
         }
         return false;
     }
 
     getMainImage(): string {
-        if(this.sku.pictures.length > 0) {
+        if (this.sku.pictures.length > 0) {
             return `${this.store.link}/static/products/${this.sku.pictures[0].showcase}`;
         }
         else {
             return `${this.store.link}/static/store/${this.store.logo}`;
         }
+    }
+
+    /**
+     * Exibe ou oculta o estoque baseado na configuração da loja
+     * Default: false
+     * @returns 
+     * @memberof ProductComponent
+     */
+    showStock(): boolean {
+        if (this.store) {
+            if (this.isCatalog()) {
+                return false;
+            }
+            else {
+                let showStock = this.store.settings.find(s => s.type == 5);
+                if (showStock && showStock.status) {
+                    return true;
+                }
+                return false;
+            }
+        }
+        return false;
     }
 }

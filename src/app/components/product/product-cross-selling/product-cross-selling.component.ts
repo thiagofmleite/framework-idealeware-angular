@@ -1,6 +1,4 @@
 import { Component, Input, OnInit, AfterViewChecked, AfterContentInit, OnDestroy, OnChanges, SimpleChanges, PLATFORM_ID, Inject } from '@angular/core';
-import { Http } from '@angular/http';
-
 import { Product } from '../../../models/product/product';
 import { Sku } from '../../../models/product/sku';
 import { ProductPicture } from '../../../models/product/product-picture';
@@ -18,9 +16,8 @@ declare var $: any;
 })
 export class ProductCrossSellingComponent implements OnChanges {
 
-    @Input() references: Object[];
+    @Input() products: Product[];
     @Input() store: Store;
-    products: Product[] = [];
 
     constructor(
         private service: ProductService,
@@ -32,26 +29,12 @@ export class ProductCrossSellingComponent implements OnChanges {
     }
 
     ngOnChanges(changes: SimpleChanges) {
-        if (!changes['references'].firstChange)
+        if (!changes['products'].firstChange)
             this.destroyCarousel();
-        this.products = [];
-        this.getProducts();
     }
 
     ngAfterViewChecked() {
         this.buildCarousel();
-    }
-
-    private getProducts(): Promise<Product[]> {
-        return new Promise((resolve, reject) => {
-            if (this.references.length > 0) {
-                this.service.getProducts(this.references)
-                    .subscribe(response => {
-                        this.products = response;
-                        resolve(this.products);
-                    }, error => reject(error));
-            }
-        });
     }
 
     private buildCarousel() {
