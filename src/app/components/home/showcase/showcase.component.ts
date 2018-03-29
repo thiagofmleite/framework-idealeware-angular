@@ -9,10 +9,10 @@ import { ShowCase } from '../../../models/showcase/showcase';
 import { EnumBannerType } from '../../../enums/banner-type.enum';
 import { Store } from '../../../models/store/store';
 import { AppCore } from '../../../app.core';
-import { StoreService } from '../../../services/store.service';
 import { ShowcaseGroup } from '../../../models/showcase/showcase-group';
 import { Router } from '@angular/router';
 import { AppConfig } from '../../../app.config';
+import { StoreManager } from '../../../managers/store.manager';
 
 const SHOWCASE_KEY = makeStateKey('showcase_key');
 const STORE_KEY = makeStateKey('store_key');
@@ -34,7 +34,7 @@ export class ShowcaseComponent implements OnInit {
         private titleService: Title,
         private metaService: Meta,
         private service: ShowCaseService,
-        private storeService: StoreService,
+        private storeManager: StoreManager,
         private globals: Globals,
         private router: Router,
         private state: TransferState,
@@ -45,25 +45,21 @@ export class ShowcaseComponent implements OnInit {
         this.showcase = this.state.get(SHOWCASE_KEY, null as any);
         this.groups = (this.showcase && this.showcase.groups) ? this.showcase.groups : [];
         this.store = this.state.get(STORE_KEY, null as any);
-        this.fetchStore()
+        this.storeManager.getStore()
             .then(store => {
                 this.store = store;
                 this.state.set(STORE_KEY, store as any);
+
+                if (this.showcase) {
+                    this.initData(this.showcase);
+                    return;
+                }
+
                 this.service.getShowCase()
                     .subscribe(showcase => {
-                        this.showcase = showcase;
                         this.state.set(SHOWCASE_KEY, showcase as any);
-                        this.groups = showcase.groups;
-                        this.banners = showcase.pictures.filter(b => b.bannerType == EnumBannerType.Full);
-                        this.stripeBanners = showcase.pictures.filter(b => b.bannerType == EnumBannerType.Tarja);
-                        this.halfBanners = showcase.pictures.filter(b => b.bannerType == EnumBannerType.Half);
-
-                        let title = (this.showcase.metaTagTitle) ? this.showcase.metaTagTitle : this.showcase.name;
-                        this.metaService.addTags([
-                            { name: 'title', content: this.showcase.metaTagTitle },
-                            { name: 'description', content: this.showcase.metaTagDescription }
-                        ]);
-                        this.titleService.setTitle(showcase.metaTagTitle);
+                        this.showcase = showcase;
+                        this.initData(showcase);
                     }, error => console.log(error));
             })
             .catch(error => {
@@ -77,30 +73,18 @@ export class ShowcaseComponent implements OnInit {
         this.metaService.removeTag("name='description'");
     }
 
-    private fetchStore(): Promise<Store> {
-        if (isPlatformBrowser(this.platformId)) {
-            let store: Store = JSON.parse(sessionStorage.getItem('store'));
-            if (store && store.domain == AppConfig.DOMAIN) {
-                return new Promise((resolve, reject) => {
-                    resolve(store);
-                });
-            }
-        }
-        return this.fetchStoreFromApi();
-    }
+    private initData(data: ShowCase): void {
+        this.groups = data.groups;
+        this.banners = data.pictures.filter(b => b.bannerType == EnumBannerType.Full);
+        this.stripeBanners = data.pictures.filter(b => b.bannerType == EnumBannerType.Tarja);
+        this.halfBanners = data.pictures.filter(b => b.bannerType == EnumBannerType.Half);
 
-    private fetchStoreFromApi(): Promise<Store> {
-        return new Promise((resolve, reject) => {
-            this.storeService.getStore()
-                .subscribe(response => {
-                    if (isPlatformBrowser(this.platformId)) {
-                        sessionStorage.setItem('store', JSON.stringify(response));
-                    }
-                    resolve(response);
-                }, error => {
-                    reject(error);
-                });
-        });
+        let title = (data.metaTagTitle) ? data.metaTagTitle : data.name;
+        this.metaService.addTags([
+            { name: 'title', content: data.metaTagTitle },
+            { name: 'description', content: data.metaTagDescription }
+        ]);
+        this.titleService.setTitle(data.metaTagTitle);
     }
 
     isMobile(): boolean {

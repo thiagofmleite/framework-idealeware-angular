@@ -6,6 +6,9 @@ import { Brand } from '../../../models/brand/brand';
 import { BrandService } from '../../../services/brand.service';
 import { AppCore } from '../../../app.core';
 import { Subscriber } from 'rxjs/Subscriber';
+import { makeStateKey, TransferState } from '@angular/platform-browser';
+
+const BRAND_KEY = makeStateKey('nav_brand_key');
 
 declare var $: any;
 
@@ -15,23 +18,36 @@ declare var $: any;
     styleUrls: ['../../../template/home/brand-nav/brand-nav.scss']
 })
 export class BrandNavComponent implements OnInit {
-    @Input() store: Store = new Store();
+    @Input() store: Store;
     allBrands: Brand[] = [];
     brands: Brand[] = [];
 
     constructor(
         private service: BrandService,
-        @Inject(PLATFORM_ID) private platformId: Object
+        @Inject(PLATFORM_ID) private platformId: Object,
+        private state: TransferState
     ) { }
 
-    ngOnInit() {
-        this.service.getAll()
-            .subscribe(brands => {
-                this.allBrands = brands;
+    ngOnChanges(): void {
+        if (this.store) {
+            const response = this.state.get(BRAND_KEY, null as any);
+            if (response) {
+                this.allBrands = response;
                 this.removeBrandWithoutPicture();
-            }, e => {
-                console.log(e);
-            });
+                return;
+            }
+            this.service.getAll()
+                .subscribe(brands => {
+                    this.state.set(BRAND_KEY, brands as any);
+                    this.allBrands = brands;
+                    this.removeBrandWithoutPicture();
+                }, e => {
+                    console.log(e);
+                });
+        }
+    }
+
+    ngOnInit() {
     }
 
     ngAfterViewChecked() {

@@ -34,7 +34,10 @@ export class StoreService {
      * @returns {Observable<Store>} 
      * @memberof StoreService
      */
-    getStoreFile(): Observable<Store> {
+    getStoreFile(error = null): Observable<Store> {
+        if (error) {
+            console.log(error);
+        }
         let url: string = 'assets/services/store.json'
         return this.client.get(url)
             .map(res => res.json());
